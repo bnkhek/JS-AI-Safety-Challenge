@@ -29,7 +29,7 @@ def build_decoding_grid() -> List[Dict]:
     # instantiate configs array with the greedy config
     decoding_configs = [dict(temperature=1.0,
                 top_p=1.0,
-                top_k=0.0,
+                top_k=50.0,
                 num_beams=1.0,
                 seed=0.0,
                 length_penalty=1.0,
@@ -39,7 +39,7 @@ def build_decoding_grid() -> List[Dict]:
     for beams, length_penalty in itertools.product(num_beams, length_penalties):
         decoding_configs.append(dict(temperature=1.0,
                 top_p=1.0,
-                top_k=0.0,
+                top_k=50.0,
                 num_beams=beams,
                 seed=0.0,
                 length_penalty=length_penalty,
@@ -50,7 +50,7 @@ def build_decoding_grid() -> List[Dict]:
         # temperature only sampling
         decoding_configs.append(dict(temperature=temperature,
                 top_p=1.0,
-                top_k=0.0,
+                top_k=50.0,
                 num_beams=1.0,
                 seed=seed,
                 length_penalty=1.0,
@@ -60,7 +60,7 @@ def build_decoding_grid() -> List[Dict]:
         for top_p in top_p_vals:
             decoding_configs.append(dict(temperature=temperature,
                 top_p=top_p,
-                top_k=0.0,
+                top_k=50.0,
                 num_beams=1.0,
                 seed=seed,
                 length_penalty=1.0,
