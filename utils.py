@@ -24,7 +24,13 @@ def load_tokenizer(model_id: str):
     Load tokenizer from the HuggingFace Hub.
     """
     print(f"Loading tokenizer: {model_id}")
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    except Exception as e:
+        # Tokenizer is failing for the warmup model due to some deserialization quirk
+        # Something about the ModelWrapper enum
+        print(f"Fast tokenizer failed ({e}); retrying with use_fast=False.")
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True, use_fast=False)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
