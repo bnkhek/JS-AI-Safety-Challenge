@@ -17,8 +17,7 @@ import json
 # CONFIGURATION — edit these
 # ============================================================
 MODEL_ID = "jane-street/dormant-model-2"
-PROMPTS_FILE = "../training_prompts/generated_prompts.json"
-BAND_SIZE = 6
+PROMPTS_FILE = "../training_prompts/generated_prompts_3.json"
 NUM_LAYERS = 61
 SAMPLES_PER_SHARD = 10000
 CHUNK_SIZE = 100
@@ -147,23 +146,18 @@ class AttentionCollector:
         self.model.eval()
         print("Model loaded.")
 
-    def average_attention_bands(self, attn_per_layer):
+    def average_attention_heads(self, attn_per_layer):
+        """Average over heads within each layer. Returns one (seq, seq) matrix per layer."""
         import numpy as np
-        bands = []
-        band_ranges = []
-        for start in range(0, NUM_LAYERS, BAND_SIZE):
-            end = min(start + BAND_SIZE, NUM_LAYERS)
-            selected = [attn_per_layer[i] for i in range(start, end)
-                        if attn_per_layer[i] is not None]
-            if len(selected) == 0:
-                bands.append(None)
+        layer_attns = []
+        for layer_attn in attn_per_layer:
+            if layer_attn is not None:
+                layer_attns.append(layer_attn.mean(axis=0))
             else:
-                head_avg = [a.mean(axis=0) for a in selected]
-                bands.append(np.mean(head_avg, axis=0))
-            band_ranges.append((start, end))
-        return bands, band_ranges
+                layer_attns.append(None)
+        return layer_attns
 
-    def save_attention(self, prompt_id, prompt, bands, band_ranges):
+    def save_attention(self, prompt_id, prompt, layer_attns):
         import numpy as np
         import h5py
         output_dir = "/output/attention_data"
@@ -176,12 +170,11 @@ class AttentionCollector:
                 del f[key]
             grp = f.create_group(key)
             grp.attrs["prompt"] = prompt
-            grp.attrs["seq_len"] = bands[0].shape[0]
-            grp.attrs["num_bands"] = len(bands)
-            band_stack = np.stack(bands, axis=0)
-            grp.create_dataset("band_attn", data=band_stack.astype(np.float16),
+            grp.attrs["seq_len"] = layer_attns[0].shape[0]
+            grp.attrs["num_layers"] = len(layer_attns)
+            layer_stack = np.stack(layer_attns, axis=0)
+            grp.create_dataset("layer_attn", data=layer_stack.astype(np.float16),
                                compression="gzip", compression_opts=4)
-            grp.create_dataset("band_ranges", data=np.array(band_ranges, dtype=np.int32))
 
     @modal.method()
     def process_batch(self, prompts_with_ids: list) -> int:
@@ -205,8 +198,8 @@ class AttentionCollector:
                 for layer_attn in outputs.attentions
             ]
 
-            bands, band_ranges = self.average_attention_bands(attn_per_layer)
-            self.save_attention(prompt_id, prompt, bands, band_ranges)
+            layer_attns = self.average_attention_heads(attn_per_layer)
+            self.save_attention(prompt_id, prompt, layer_attns)
 
             del outputs, attn_per_layer
             torch.cuda.empty_cache()
