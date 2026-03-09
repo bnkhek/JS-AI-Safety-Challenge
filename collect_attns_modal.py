@@ -16,16 +16,16 @@ import json
 # ============================================================
 # CONFIGURATION — edit these
 # ============================================================
-MODEL_ID = "jane-street/dormant-model-warmup"
+MODEL_ID = "jane-street/dormant-model-2"
 PROMPTS_FILE = "../training_prompts/generated_prompts.json"
-BAND_SIZE = 3
-NUM_LAYERS = 28
+BAND_SIZE = 6
+NUM_LAYERS = 61
 SAMPLES_PER_SHARD = 10000
 CHUNK_SIZE = 100
 GPU_CONFIG = "H200:8"
 # ============================================================
 
-app = modal.App("collect-attentions-warmup")
+app = modal.App("collect-attentions")
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -42,7 +42,7 @@ image = (
 )
 
 model_cache = modal.Volume.from_name("hf-model-cache", create_if_missing=True)
-output_vol = modal.Volume.from_name("attention-output-warmup", create_if_missing=True)
+output_vol = modal.Volume.from_name("attention-output", create_if_missing=True)
 
 
 # ============================================================
@@ -166,7 +166,7 @@ class AttentionCollector:
     def save_attention(self, prompt_id, prompt, bands, band_ranges):
         import numpy as np
         import h5py
-        output_dir = "/output/attention_data_warmup"
+        output_dir = "/output/attention_data"
         os.makedirs(output_dir, exist_ok=True)
         shard_idx = prompt_id // SAMPLES_PER_SHARD
         shard_path = os.path.join(output_dir, f"shard_{shard_idx:06d}.h5")
@@ -225,7 +225,7 @@ def main():
         prompts = json.load(f)
     print(f"Loaded {len(prompts)} prompts from {PROMPTS_FILE}")
 
-    progress_file = "collection_progress_warmup_modal.json"
+    progress_file = "collection_progress_modal.json"
     start_from = 0
     if os.path.exists(progress_file):
         with open(progress_file, "r") as f:
@@ -245,4 +245,4 @@ def main():
         print(f"Batch {i}-{end-1}: saved {n} prompts ({end}/{len(prompts)})")
 
     print(f"\nDone! Download results with:")
-    print(f"  modal volume get attention-output-warmup attention_data_warmup ./attention_data_warmup_modal")
+    print(f"  modal volume get attention-output attention_data ./attention_data_modal")
